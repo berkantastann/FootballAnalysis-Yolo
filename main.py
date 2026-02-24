@@ -9,7 +9,9 @@ def main():
     
     tracks = tracker.get_objects_tracks(video_frames, read_from_stub=True, stub_path="stubs/tracks.pkl")
     
-    #save_video(video_frames, "output_videos/output.mp4")
+    output_frames = tracker.draw_anotation(video_frames, tracks)
+
+    save_video(output_frames, "output_videos/outputAnotation .mp4")
     
 if __name__ == "__main__":
     main()
