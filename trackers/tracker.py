@@ -4,6 +4,8 @@ import supervision as sv
 import pickle
 import os
 from utils import get_bbox_center, get_bbox_width
+import numpy as np
+
 class Tracker:
     def __init__(self, model_path):
         self.model = YOLO(model_path)
@@ -75,7 +77,7 @@ class Tracker:
         return tracks
     
     
-    def draw_ellipse(self, frame, bbox, color, track_id):
+    def draw_ellipse(self, frame, bbox, color, player_id=None):
         y2 = int(bbox[3])
         bbox_center_x,_ = get_bbox_center(bbox)
         bbox_width = get_bbox_width(bbox)
@@ -91,9 +93,51 @@ class Tracker:
             lineType=cv.LINE_4
         )
         
+        rectangle_width = 40
+        rectangle_height=20
+        x1_rect = bbox_center_x - rectangle_width//2
+        x2_rect = bbox_center_x + rectangle_width//2
+        y1_rect = (y2- rectangle_height//2) +15
+        y2_rect = (y2+ rectangle_height//2) +15
+
+        if player_id is not None:
+            cv.rectangle(frame,
+                    (int(x1_rect),int(y1_rect) ),
+                    (int(x2_rect),int(y2_rect)),
+                    color,
+                    cv.FILLED)
+            
+            x1_text = x1_rect+12
+            if player_id > 99:
+                x1_text -=10
+            
+            cv.putText(
+                frame,
+                f"{player_id}",
+                (int(x1_text),int(y1_rect+15)),
+                cv.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (0,0,0),
+                2
+            )
+        
+        
         
         return frame
     
+    def draw_triangle(self,frame,bbox,color):
+        y= int(bbox[1])
+        x,_ = get_bbox_center(bbox)
+
+        triangle_points = np.array([
+            [x,y],
+            [x-10,y-20],
+            [x+10,y-20],
+        ])
+        cv.drawContours(frame, [triangle_points],0,color, cv.FILLED)
+        cv.drawContours(frame, [triangle_points],0,(0,0,0), 2)
+
+        return frame
     
     def draw_anotation(self,video_frames,tracks):
         output_frames = []
@@ -109,15 +153,16 @@ class Tracker:
                 bbox = player_info["bbox"]
                 frame = self.draw_ellipse(frame, bbox, (0,255,0),player_id)
                 
-            for referee_id,referee_info in referee_dict.items():
+            for _,referee_info in referee_dict.items():
                 bbox = referee_info["bbox"]
-                frame = self.draw_ellipse(frame, bbox, (0,0,255),referee_id)
+                frame = self.draw_ellipse(frame, bbox, (0,0,255))
+                
+            for _, ball_info in ball_dict.items():
+                bbox = ball_info["bbox"]
+                frame = self.draw_triangle(frame,bbox,(255,0,0))
                 
             output_frames.append(frame)
             
         return output_frames
     
-    
-    
-      
     

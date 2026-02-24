@@ -11,7 +11,7 @@ def main():
     
     output_frames = tracker.draw_anotation(video_frames, tracks)
 
-    save_video(output_frames, "output_videos/outputAnotation .mp4")
+    save_video(output_frames, "output_videos/outputAnotation.mp4")
     
 if __name__ == "__main__":
     main()
