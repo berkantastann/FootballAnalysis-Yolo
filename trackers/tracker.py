@@ -4,7 +4,7 @@ import supervision as sv
 import pickle
 import os
 import pandas as pd
-from utils import get_bbox_center, get_bbox_width
+from utils import get_bbox_center, get_center_of_bbox
 import numpy as np
 
 class Tracker:
@@ -93,7 +93,7 @@ class Tracker:
     def draw_ellipse(self, frame, bbox, color, player_id=None):
         y2 = int(bbox[3])
         bbox_center_x,_ = get_bbox_center(bbox)
-        bbox_width = get_bbox_width(bbox)
+        bbox_width = get_center_of_bbox(bbox)
         
         cv.ellipse(frame,
             center=(bbox_center_x, y2),
@@ -151,32 +151,59 @@ class Tracker:
         cv.drawContours(frame, [triangle_points],0,(0,0,0), 2)
 
         return frame
+
+    def draw_team_ball_control(self,frame,frame_num,team_ball_control):
+        overlay = frame.copy()
+        cv.rectangle(overlay, (1350, 850), (1900,970), (255,255,255), -1 )
+        alpha = 0.4
+        cv.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+
+        team_ball_control_till_frame = team_ball_control[:frame_num+1]
+        team_1_num_frames = team_ball_control_till_frame[team_ball_control_till_frame==1].shape[0]
+        team_2_num_frames = team_ball_control_till_frame[team_ball_control_till_frame==2].shape[0]
+        total = team_1_num_frames + team_2_num_frames
+        if total == 0:
+            team_1 = 0.0
+            team_2 = 0.0
+        else:
+            team_1 = team_1_num_frames / total
+            team_2 = team_2_num_frames / total
+
+        cv.putText(frame, f"Team 1 Ball Control: {team_1*100:.2f}%",(1400,900), cv.FONT_HERSHEY_SIMPLEX, 1, (0,0,0), 3)
+        cv.putText(frame, f"Team 2 Ball Control: {team_2*100:.2f}%",(1400,950), cv.FONT_HERSHEY_SIMPLEX, 1, (0,0,0), 3)
+
+        return frame
     
-    def draw_anotation(self,video_frames,tracks):
-        output_frames = []
-        
-        for frame_number,frame in enumerate(video_frames):
+    def draw_annotations(self,video_frames, tracks,team_ball_control):
+        output_video_frames= []
+        for frame_num, frame in enumerate(video_frames):
             frame = frame.copy()
+
+            player_dict = tracks["players"][frame_num]
+            ball_dict = tracks["ball"][frame_num]
+            referee_dict = tracks["referees"][frame_num]
+
+            # Draw Players
+            for track_id, player in player_dict.items():
+                color = player.get("team_color", player.get("color", (0,0,255)))
+                frame = self.draw_ellipse(frame, player["bbox"],color, track_id)
+
+                if player.get('has_ball',False):
+                    frame = self.draw_triangle(frame, player["bbox"],(0,0,255))
+
+            # Draw Referee
+            for _, referee in referee_dict.items():
+                frame = self.draw_ellipse(frame, referee["bbox"],(0,0,255))
             
-            player_dict = tracks["players"][frame_number]
-            ball_dict = tracks["ball"][frame_number]
-            referee_dict = tracks["referees"][frame_number]
-            
-            for player_id,player_info in player_dict.items():
-                color = player_info.get("color",(0,0,255)) 
-                bbox = player_info["bbox"]
-                frame = self.draw_ellipse(frame, bbox, color,player_id)
-                
-            for _,referee_info in referee_dict.items():
-                bbox = referee_info["bbox"]
-                frame = self.draw_ellipse(frame, bbox, (0,0,255))
-                
-            for _, ball_info in ball_dict.items():
-                bbox = ball_info["bbox"]
-                frame = self.draw_triangle(frame,bbox,(255,0,0))
-                
-            output_frames.append(frame)
-            
-        return output_frames
-    
+            # Draw ball 
+            for track_id, ball in ball_dict.items():
+                frame = self.draw_triangle(frame, ball["bbox"],(0,255,0))
+
+
+            # Draw Team Ball Control
+            frame = self.draw_team_ball_control(frame, frame_num, team_ball_control)
+
+            output_video_frames.append(frame)
+
+        return output_video_frames
     

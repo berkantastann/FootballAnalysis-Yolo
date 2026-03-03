@@ -7,7 +7,7 @@ import pandas as pd
 import cv2
 import sys 
 sys.path.append('../')
-from utils import get_center_of_bbox, get_bbox_width, get_foot_position
+from utils import get_center_of_bbox, get_center_of_bbox, get_foot_position
 
 class Tracker:
     def __init__(self, model_path):
@@ -106,7 +106,7 @@ class Tracker:
     def draw_ellipse(self,frame,bbox,color,track_id=None):
         y2 = int(bbox[3])
         x_center, _ = get_center_of_bbox(bbox)
-        width = get_bbox_width(bbox)
+        width = get_center_of_bbox(bbox)
 
         cv2.ellipse(
             frame,
