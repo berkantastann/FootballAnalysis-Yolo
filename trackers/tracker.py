@@ -3,6 +3,7 @@ from ultralytics import YOLO
 import supervision as sv
 import pickle
 import os
+import pandas as pd
 from utils import get_bbox_center, get_bbox_width
 import numpy as np
 
@@ -10,6 +11,20 @@ class Tracker:
     def __init__(self, model_path):
         self.model = YOLO(model_path)
         self.tracker = sv.ByteTrack()
+        
+        
+        
+    def interpolate_ball_positions(self,ball_positions):
+        ball_positions = [x.get(1,{}).get('bbox',[]) for x in ball_positions]
+        df_ball_positions = pd.DataFrame(ball_positions,columns=['x1','y1','x2','y2'])
+
+        # Interpolate missing values
+        df_ball_positions = df_ball_positions.interpolate()
+        df_ball_positions = df_ball_positions.bfill()
+
+        ball_positions = [{1: {"bbox":x}} for x in df_ball_positions.to_numpy().tolist()]
+
+        return ball_positions
         
     def detect_frames(self, frames):
         batch_size = 3 # GPU varsa batch size'ı artabilir. 
@@ -67,15 +82,13 @@ class Tracker:
                 cls_id = frame_detection[3]
 
                 if cls_id == cls_names_inv['ball']:
-                    tracks["ball"][frame_num][1] = {"bbox":bbox}
- 
+                    tracks["ball"][frame_num][1] = {"bbox":bbox}  
             
             if stub_path is not None and read_from_stub:
                 with open(stub_path, 'wb') as f:
                     pickle.dump(tracks, f)
         
         return tracks
-    
     
     def draw_ellipse(self, frame, bbox, color, player_id=None):
         y2 = int(bbox[3])
@@ -150,8 +163,9 @@ class Tracker:
             referee_dict = tracks["referees"][frame_number]
             
             for player_id,player_info in player_dict.items():
+                color = player_info.get("color",(0,0,255)) 
                 bbox = player_info["bbox"]
-                frame = self.draw_ellipse(frame, bbox, (0,255,0),player_id)
+                frame = self.draw_ellipse(frame, bbox, color,player_id)
                 
             for _,referee_info in referee_dict.items():
                 bbox = referee_info["bbox"]
